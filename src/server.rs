@@ -1,5 +1,4 @@
 use brotli::enc::{BrotliCompress, BrotliEncoderParams};
-use cached::proc_macro::cached;
 use cookie::Cookie;
 use core::f64;
 use futures_lite::{future::Boxed, Future, FutureExt};
@@ -306,7 +305,6 @@ async fn new_boilerplate(
 /// Accept-Encoding: gzip, compress, br
 /// Accept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1
 /// ```
-#[cached]
 fn determine_compressor(accept_encoding: String) -> Option<CompressionType> {
 	if accept_encoding.is_empty() {
 		return None;
@@ -562,7 +560,6 @@ async fn compress_response(req_headers: &HeaderMap<header::HeaderValue>, res: &m
 // larger than client::json's TTL, but that's okay, because if client::json
 // returns a new serde_json::Value, body_bytes changes, so this function will
 // execute again.
-#[cached(size = 100, time = 600, result = true)]
 fn compress_body(compressor: CompressionType, body_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
 	// io::Cursor implements io::Read, required for our encoders.
 	let mut reader = io::Cursor::new(body_bytes);

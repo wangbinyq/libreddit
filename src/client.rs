@@ -1,4 +1,3 @@
-use cached::proc_macro::cached;
 use futures_lite::{future::Boxed, FutureExt};
 use hyper::{body, body::Buf, client, header, Body, Method, Request, Response, Uri};
 use libflate::gzip;
@@ -23,7 +22,6 @@ const REDDIT_URL_BASE: &str = "https://www.reddit.com";
 /// value is `Ok(None)` if Reddit responded with a 3xx, but did not provide a
 /// `Location` header. An `Err(String)` is returned if Reddit responds with a
 /// 429, or if we were unable to decode the value in the `Location` header.
-#[cached(size = 1024, time = 600, result = true)]
 pub async fn canonical_path(path: String) -> Result<Option<String>, String> {
 	let res = reddit_head(path.clone(), true).await?;
 
@@ -242,7 +240,6 @@ fn request(method: &'static Method, path: String, redirect: bool, quarantine: bo
 }
 
 // Make a request to a Reddit API and parse the JSON response
-#[cached(size = 100, time = 30, result = true)]
 pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 	// Closure to quickly build errors
 	let err = |msg: &str, e: String| -> Result<Value, String> {
