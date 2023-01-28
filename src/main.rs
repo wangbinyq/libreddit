@@ -13,8 +13,6 @@ mod user;
 mod utils;
 
 // Import Crates
-use clap::{Arg, ArgAction, Command};
-
 use futures_lite::FutureExt;
 use hyper::{header::HeaderValue, Body, Request, Response};
 
@@ -106,53 +104,6 @@ async fn style() -> Result<Response<Body>, String> {
 
 #[tokio::main]
 async fn main() {
-	let matches = Command::new("Libreddit")
-		.version(env!("CARGO_PKG_VERSION"))
-		.about("Private front-end for Reddit written in Rust ")
-		.arg(
-			Arg::new("redirect-https")
-				.short('r')
-				.long("redirect-https")
-				.help("Redirect all HTTP requests to HTTPS (no longer functional)")
-				.num_args(0),
-		)
-		.arg(
-			Arg::new("address")
-				.short('a')
-				.long("address")
-				.value_name("ADDRESS")
-				.help("Sets address to listen on")
-				.default_value("0.0.0.0")
-				.num_args(1),
-		)
-		.arg(
-			Arg::new("port")
-				.short('p')
-				.long("port")
-				.value_name("PORT")
-				.env("PORT")
-				.help("Port to listen on")
-				.default_value("8080")
-				.action(ArgAction::Set)
-				.num_args(1),
-		)
-		.arg(
-			Arg::new("hsts")
-				.short('H')
-				.long("hsts")
-				.value_name("EXPIRE_TIME")
-				.help("HSTS header to tell browsers that this site should only be accessed over HTTPS")
-				.default_value("604800")
-				.num_args(1),
-		)
-		.get_matches();
-
-	let address = matches.get_one::<String>("address").unwrap();
-	let port = matches.get_one::<String>("port").unwrap();
-	let hsts = matches.get_one("hsts").map(|m: &String| m.as_str());
-
-	let listener = [address, ":", port].concat();
-
 	println!("Starting Libreddit...");
 
 	// Begin constructing a server
@@ -165,12 +116,6 @@ async fn main() {
 		"X-Frame-Options" => "DENY",
 		"Content-Security-Policy" => "default-src 'none'; font-src 'self'; script-src 'self' blob:; manifest-src 'self'; media-src 'self' data: blob: about:; style-src 'self' 'unsafe-inline'; base-uri 'none'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; connect-src 'self'; worker-src blob:;"
 	};
-
-	if let Some(expire_time) = hsts {
-		if let Ok(val) = HeaderValue::from_str(&format!("max-age={}", expire_time)) {
-			app.default_headers.insert("Strict-Transport-Security", val);
-		}
-	}
 
 	// Read static files
 	app.at("/style.css").get(|_| style().boxed());
@@ -308,13 +253,4 @@ async fn main() {
 
 	// Default service in case no routes match
 	app.at("/*").get(|req| error(req, "Nothing here".to_string()).boxed());
-
-	println!("Running Libreddit v{} on {}!", env!("CARGO_PKG_VERSION"), listener);
-
-	let server = app.listen(listener);
-
-	// Run this server for... forever!
-	if let Err(e) = server.await {
-		eprintln!("Server error: {}", e);
-	}
 }
