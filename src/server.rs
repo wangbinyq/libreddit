@@ -262,10 +262,7 @@ impl Server {
 		let address = &addr.parse().unwrap_or_else(|_| panic!("Cannot parse {} as address (example format: 0.0.0.0:8080)", addr));
 
 		// Bind server to address specified above. Gracefully shut down if CTRL+C is pressed
-		let server = HyperServer::bind(address).serve(make_svc).with_graceful_shutdown(async {
-			// Wait for the CTRL+C signal
-			tokio::signal::ctrl_c().await.expect("Failed to install CTRL+C signal handler");
-		});
+		let server = HyperServer::bind(address).serve(make_svc);
 
 		server.boxed()
 	}

@@ -102,8 +102,7 @@ async fn style() -> Result<Response<Body>, String> {
 	)
 }
 
-#[tokio::main]
-async fn main() {
+pub fn main() {
 	println!("Starting Libreddit...");
 
 	// Begin constructing a server
