@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 // CRATES
 use crate::server::{RequestExt, ResponseExt};
 use crate::utils::{promise, redirect, template, wasm_error, Preferences};

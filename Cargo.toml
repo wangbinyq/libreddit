@@ -19,7 +19,7 @@ futures-lite = "1.12.0"
 percent-encoding = "2.2.0"
 route-recognizer = "0.3.1"
 serde_json = "1.0.91"
-time = "0.3.17"
+time = { version = "0.3.17", features = ["wasm-bindgen"] }
 rust-embed = { version = "6.4.2", features = ["include-exclude"] }
 libflate = "1.2.0"
 brotli = { version = "3.3.4", features = ["std"] }
@@ -30,6 +30,8 @@ js-sys = "0.3.60"
 web-sys = { version = "0.3.60", features = ["Request", "Response", "Window", "Headers", "Url", "Blob", "ResponseInit", "RequestInit", "UrlSearchParams", "ReadableStream", "RequestRedirect", "FormData"] }
 wasm-bindgen-futures = "0.4.33"
 serde-wasm-bindgen = "0.4.5"
+gloo-console = "0.2.3"
+console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 lipsum = "0.8.2"

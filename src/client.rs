@@ -82,7 +82,7 @@ async fn stream(url: &str, req: &Request) -> Result<Response, String> {
 	// Copy useful headers from original request
 	for &key in &["Range", "If-Modified-Since", "Cache-Control"] {
 		if let Some(value) = req.headers().get(key).ok().flatten() {
-			headers.set(key, &value);
+			headers.set(key, &value).ok();
 		}
 	}
 
@@ -94,7 +94,7 @@ async fn stream(url: &str, req: &Request) -> Result<Response, String> {
 
 	let headers = response.headers();
 
-	let rm = |key: &str| headers.delete(key);
+	let rm = |key: &str| headers.delete(key).ok();
 	rm("access-control-expose-headers");
 	rm("server");
 	rm("vary");
@@ -132,15 +132,17 @@ fn request(method: &'static str, path: String, redirect: bool, quarantine: bool)
 	// Build Reddit URL from path.
 	let url = format!("{}{}", REDDIT_URL_BASE, path);
 
-	let mut headers = Headers::new().unwrap();
+	let headers = Headers::new().unwrap();
 
-	headers.set("User-Agent", &format!("web:libreddit:{}", env!("CARGO_PKG_VERSION")));
-	headers.set("Host", "www.reddit.com");
-	headers.set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-	headers.set("Accept-Encoding", if method == "GET" { "gzip" } else { "identity" });
-	headers.set("Accept-Language", "en-US,en;q=0.5");
-	headers.set("Connection", "keep-alive");
-	headers.set("Cookie", if quarantine { "_options=%7B%22pref_quarantine_optin%22%3A%20true%7D" } else { "" });
+	headers.set("User-Agent", &format!("web:libreddit:{}", env!("CARGO_PKG_VERSION"))).ok();
+	headers.set("Host", "www.reddit.com").ok();
+	headers.set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8").ok();
+	headers.set("Accept-Encoding", if method == "GET" { "gzip" } else { "identity" }).ok();
+	headers.set("Accept-Language", "en-US,en;q=0.5").ok();
+	headers.set("Connection", "keep-alive").ok();
+	headers
+		.set("Cookie", if quarantine { "_options=%7B%22pref_quarantine_optin%22%3A%20true%7D" } else { "" })
+		.ok();
 
 	let mut req = RequestInit::new();
 	req.method(method);

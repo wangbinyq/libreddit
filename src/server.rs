@@ -11,54 +11,6 @@ use crate::utils::wasm_error;
 
 type BoxResponse = BoxedLocal<Result<Response, String>>;
 
-/// Compressors for the response Body, in ascending order of preference.
-#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum CompressionType {
-	Passthrough,
-	Gzip,
-	Brotli,
-}
-
-/// All browsers support gzip, so if we are given `Accept-Encoding: *`, deliver
-/// gzipped-content.
-///
-/// Brotli would be nice universally, but Safari (iOS, iPhone, macOS) reportedly
-/// doesn't support it yet.
-const DEFAULT_COMPRESSOR: CompressionType = CompressionType::Gzip;
-
-impl CompressionType {
-	/// Returns a `CompressionType` given a content coding
-	/// in [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4)
-	/// format.
-	fn parse(s: &str) -> Option<CompressionType> {
-		let c = match s {
-			// Compressors we support.
-			"gzip" => CompressionType::Gzip,
-			"br" => CompressionType::Brotli,
-
-			// The wildcard means that we can choose whatever
-			// compression we prefer. In this case, use the
-			// default.
-			"*" => DEFAULT_COMPRESSOR,
-
-			// Compressor not supported.
-			_ => return None,
-		};
-
-		Some(c)
-	}
-}
-
-impl ToString for CompressionType {
-	fn to_string(&self) -> String {
-		match self {
-			CompressionType::Gzip => "gzip".to_string(),
-			CompressionType::Brotli => "br".to_string(),
-			_ => String::new(),
-		}
-	}
-}
-
 pub struct Route<'a> {
 	router: &'a mut Router<fn(Request) -> BoxResponse>,
 	path: String,
@@ -99,11 +51,16 @@ pub trait ResponseExt {
 
 impl RequestExt for Request {
 	fn uri(&self) -> Url {
-		Url::new(&self.url()).unwrap()
+		let url = Url::new(&self.url()).unwrap();
+
+		if url.search().is_empty() {
+			url.set_search("?_")
+		}
+
+		url
 	}
 
 	fn params(&self) -> Map {
-		let obj: &JsValue = self;
 		let params = js_sys::Reflect::get(self, &JsValue::from_str("params")).unwrap_or_default();
 
 		JsCast::dyn_into(params).unwrap_or_default()
@@ -119,7 +76,7 @@ impl RequestExt for Request {
 			map.set(&JsValue::from_str(key), &JsValue::from_str(value));
 		}
 
-		js_sys::Reflect::set(self, &JsValue::from_str("params"), &map);
+		js_sys::Reflect::set(self, &JsValue::from_str("params"), &map).ok();
 	}
 
 	fn cookies(&self) -> Vec<Cookie> {
@@ -227,9 +184,9 @@ impl Server {
 				let func = (found.handler().to_owned().to_owned())(parammed);
 				async move {
 					match func.await {
-						Ok(mut res) => {
+						Ok(res) => {
 							for (key, value) in def_headers {
-								res.headers().append(&key, &value);
+								res.headers().set(&key, &value).ok();
 							}
 
 							Ok(res)
@@ -248,7 +205,12 @@ impl Server {
 /// Create a boilerplate Response for error conditions. This response will be
 /// compressed if requested by client.
 fn new_boilerplate(default_headers: HashMap<String, String>, req_headers: Headers, status: u16, body: String) -> Result<Response, String> {
+	for (key, value) in default_headers {
+		req_headers.set(&key, &value).ok();
+	}
+
 	let mut init = ResponseInit::new();
+
 	init.status(status);
 	init.headers(&req_headers);
 

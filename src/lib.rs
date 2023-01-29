@@ -12,14 +12,17 @@ mod subreddit;
 mod user;
 mod utils;
 
+use std::panic;
+
 // Import Crates
 use futures_lite::FutureExt;
 
 mod client;
 use client::{canonical_path, proxy};
+use js_sys::Uint8Array;
 use once_cell::sync::Lazy;
 use server::{RequestExt, Server};
-use utils::{error, redirect};
+use utils::{error, redirect, wasm_error, ThemeAssets};
 use wasm_bindgen::prelude::*;
 use web_sys::{Request, Response};
 
@@ -28,88 +31,73 @@ mod server;
 // Create Services
 
 // Required for the manifest to be valid
-// async fn pwa_logo() -> Result<Response, String> {
-// 	Ok(
-// 		http::Response::builder()
-// 			.status(200)
-// 			.header("content-type", "image/png")
-// 			.body(include_bytes!("../static/logo.png").as_ref())
-// 			.unwrap_or_default()
-// 			.into(),
-// 	)
-// }
+async fn pwa_logo() -> Result<Response, String> {
+	let body = include_bytes!("../static/logo.png").as_ref();
+	let body: Uint8Array = body.into();
 
-// // Required for iOS App Icons
-// async fn iphone_logo() -> Result<Response, String> {
-// 	Ok(
-// 		http::Response::builder()
-// 			.status(200)
-// 			.header("content-type", "image/png")
-// 			.body(include_bytes!("../static/apple-touch-icon.png").as_ref())
-// 			.unwrap_or_default()
-// 			.into(),
-// 	)
-// }
+	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
+	response.headers().set("content-type", "image/png").ok();
 
-// async fn favicon() -> Result<Response, String> {
-// 	Ok(
-// 		http::Response::builder()
-// 			.status(200)
-// 			.header("content-type", "image/vnd.microsoft.icon")
-// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-// 			.body(include_bytes!("../static/favicon.ico").as_ref())
-// 			.unwrap_or_default()
-// 			.into(),
-// 	)
-// }
+	Ok(response)
+}
 
-// async fn font() -> Result<Response, String> {
-// 	Ok(
-// 		http::Response::builder()
-// 			.status(200)
-// 			.header("content-type", "font/woff2")
-// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-// 			.body(include_bytes!("../static/Inter.var.woff2").as_ref())
-// 			.unwrap_or_default()
-// 			.into(),
-// 	)
-// }
+// Required for iOS App Icons
+async fn iphone_logo() -> Result<Response, String> {
+	let body = include_bytes!("../static/apple-touch-icon.png").as_ref();
+	let body: Uint8Array = body.into();
 
-// async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response, String> {
-// 	let mut res = http::Response::builder()
-// 		.status(200)
-// 		.header("content-type", content_type)
-// 		.body(body.to_string())
-// 		.unwrap_or_default();
+	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
+	response.headers().set("content-type", "image/png").ok();
 
-// 	if cache {
-// 		if let Ok(val) = HeaderValue::from_str("public, max-age=1209600, s-maxage=86400") {
-// 			res.headers_mut().insert("Cache-Control", val);
-// 		}
-// 	}
+	Ok(response)
+}
 
-// 	Ok(res.into())
-// }
+async fn favicon() -> Result<Response, String> {
+	let body = include_bytes!("../static/favicon.ico").as_ref();
+	let body: Uint8Array = body.into();
 
-// async fn style() -> Result<Response, String> {
-// 	let mut res = include_str!("../static/style.css").to_string();
-// 	for file in ThemeAssets::iter() {
-// 		res.push('\n');
-// 		let theme = ThemeAssets::get(file.as_ref()).unwrap();
-// 		res.push_str(std::str::from_utf8(theme.data.as_ref()).unwrap());
-// 	}
-// 	Ok(
-// 		http::Response::builder()
-// 			.status(200)
-// 			.header("content-type", "text/css")
-// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-// 			.body(res.to_string())
-// 			.unwrap_or_default()
-// 			.into(),
-// 	)
-// }
+	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
+	response.headers().set("content-type", "image/vnd.microsoft.icon").ok();
+	response.headers().set("Cache-Control", "public, max-age=1209600, s-maxage=86400").ok();
+
+	Ok(response)
+}
+
+async fn font() -> Result<Response, String> {
+	let body = include_bytes!("../static/Inter.var.woff2").as_ref();
+	let body: Uint8Array = body.into();
+
+	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
+	response.headers().set("content-type", "font/woff2").ok();
+	response.headers().set("Cache-Control", "public, max-age=1209600, s-maxage=86400").ok();
+
+	Ok(response)
+}
+
+async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response, String> {
+	let response = Response::new_with_opt_str(Some(&body)).map_err(wasm_error)?;
+	response.headers().set("content-type", content_type).ok();
+
+	if cache {
+		response.headers().set("Cache-Control", "public, max-age=1209600, s-maxage=86400").ok();
+	}
+
+	Ok(response)
+}
+
+async fn style() -> Result<Response, String> {
+	let mut res = include_str!("../static/style.css").to_string();
+	for file in ThemeAssets::iter() {
+		res.push('\n');
+		let theme = ThemeAssets::get(file.as_ref()).unwrap();
+		res.push_str(std::str::from_utf8(theme.data.as_ref()).unwrap());
+	}
+
+	resource(&res, "text/css", true).await
+}
 
 static SERVER: Lazy<Server> = Lazy::new(|| {
+	panic::set_hook(Box::new(console_error_panic_hook::hook));
 	println!("Starting Libreddit...");
 
 	// Begin constructing a server
@@ -124,24 +112,24 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 	};
 
 	// Read static files
-	// app.at("/style.css").get(|_| style().boxed_local());
-	// app
-	// 	.at("/manifest.json")
-	// 	.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed_local());
-	// app
-	// 	.at("/robots.txt")
-	// 	.get(|_| resource("User-agent: *\nDisallow: /u/\nDisallow: /user/", "text/plain", true).boxed_local());
-	// app.at("/favicon.ico").get(|_| favicon().boxed_local());
-	// app.at("/logo.png").get(|_| pwa_logo().boxed_local());
-	// app.at("/Inter.var.woff2").get(|_| font().boxed_local());
-	// app.at("/touch-icon-iphone.png").get(|_| iphone_logo().boxed_local());
-	// app.at("/apple-touch-icon.png").get(|_| iphone_logo().boxed_local());
-	// app
-	// 	.at("/playHLSVideo.js")
-	// 	.get(|_| resource(include_str!("../static/playHLSVideo.js"), "text/javascript", false).boxed_local());
-	// app
-	// 	.at("/hls.min.js")
-	// 	.get(|_| resource(include_str!("../static/hls.min.js"), "text/javascript", false).boxed_local());
+	app.at("/style.css").get(|_| style().boxed_local());
+	app
+		.at("/manifest.json")
+		.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed_local());
+	app
+		.at("/robots.txt")
+		.get(|_| resource("User-agent: *\nDisallow: /u/\nDisallow: /user/", "text/plain", true).boxed_local());
+	app.at("/favicon.ico").get(|_| favicon().boxed_local());
+	app.at("/logo.png").get(|_| pwa_logo().boxed_local());
+	app.at("/Inter.var.woff2").get(|_| font().boxed_local());
+	app.at("/touch-icon-iphone.png").get(|_| iphone_logo().boxed_local());
+	app.at("/apple-touch-icon.png").get(|_| iphone_logo().boxed_local());
+	app
+		.at("/playHLSVideo.js")
+		.get(|_| resource(include_str!("../static/playHLSVideo.js"), "text/javascript", false).boxed_local());
+	app
+		.at("/hls.min.js")
+		.get(|_| resource(include_str!("../static/hls.min.js"), "text/javascript", false).boxed_local());
 
 	// Proxy media through Libreddit
 	app.at("/vid/:id/:size").get(|r| proxy(r, "https://v.redd.it/{id}/DASH_{size}").boxed_local());
@@ -265,7 +253,9 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 
 #[wasm_bindgen]
 pub async fn serve(req: Request) -> Result<Response, String> {
-	let res = SERVER.serve(req).await;
+	let url = req.url();
 
-	res
+	let res = SERVER.serve(req).await?;
+
+	Ok(res)
 }

@@ -8,7 +8,7 @@ use js_sys::Promise;
 use regex::Regex;
 use rust_embed::RustEmbed;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
 use time::{macros::format_description, Duration, OffsetDateTime};
@@ -833,7 +833,11 @@ pub fn val(j: &Value, k: &str) -> String {
 pub fn template(t: impl Template) -> Result<Response, String> {
 	let body = t.render().ok();
 	// content-type
-	Response::new_with_opt_str(body.as_ref().map(|x| &**x)).map_err(wasm_error)
+	let res = Response::new_with_opt_str(body.as_ref().map(|x| &**x)).map_err(wasm_error)?;
+
+	res.headers().set("content-type", "text/html").ok();
+
+	Ok(res)
 }
 
 pub fn redirect(path: String) -> Response {
@@ -853,7 +857,11 @@ pub async fn error(req: Request, msg: impl ToString) -> Result<Response, String>
 
 	let mut init = ResponseInit::new();
 	init.status(404);
-	Response::new_with_opt_str_and_init(Some(body.as_str()), &init).map_err(wasm_error)
+	let res = Response::new_with_opt_str_and_init(Some(body.as_str()), &init).map_err(wasm_error)?;
+
+	res.headers().set("content-type", "text/html").ok();
+
+	Ok(res)
 }
 
 /// Returns true if the config/env variable `LIBREDDIT_SFW_ONLY` carries the

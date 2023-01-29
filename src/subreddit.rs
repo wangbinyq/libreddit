@@ -168,7 +168,10 @@ pub fn quarantine(req: Request, sub: String) -> Result<Response, String> {
 	let mut init = ResponseInit::new();
 	init.status(403);
 
-	Response::new_with_opt_str_and_init(body.as_ref().map(|x| &**x), &init).map_err(wasm_error)
+	let response = Response::new_with_opt_str_and_init(body.as_ref().map(|x| &**x), &init).map_err(wasm_error)?;
+
+	response.headers().set("content-type", "text/html").ok();
+	Ok(response)
 }
 
 pub async fn add_quarantine_exception(req: Request) -> Result<Response, String> {
