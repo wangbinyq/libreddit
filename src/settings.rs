@@ -35,7 +35,7 @@ const PREFS: [&str; 12] = [
 
 // Retrieve cookies from request "Cookie" header
 pub async fn get(req: Request) -> Result<Response, String> {
-	let url = req.url();
+	let url = req.uri().pathname();
 	template(SettingsTemplate {
 		prefs: Preferences::new(&req),
 		url,

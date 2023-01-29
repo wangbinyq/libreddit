@@ -64,7 +64,7 @@ pub async fn item(req: Request) -> Result<Response, String> {
 			}
 
 			let comments = parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req);
-			let url = req.url();
+			let url = req.uri().pathname();
 
 			// Use the Post and Comment structs to generate a website to show users
 			template(PostTemplate {

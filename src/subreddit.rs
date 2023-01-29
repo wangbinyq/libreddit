@@ -158,7 +158,7 @@ pub fn quarantine(req: Request, sub: String) -> Result<Response, String> {
 	let wall = WallTemplate {
 		title: format!("r/{} is quarantined", sub),
 		msg: "Please click the button below to continue to this subreddit.".to_string(),
-		url: req.url(),
+		url: req.uri().pathname(),
 		sub,
 		prefs: Preferences::new(&req),
 	};
@@ -314,7 +314,7 @@ pub async fn wiki(req: Request) -> Result<Response, String> {
 
 	let page = req.param("page").unwrap_or_else(|| "index".to_string());
 	let path: String = format!("/r/{}/wiki/{}.json?raw_json=1", sub, page);
-	let url = req.url();
+	let url = req.uri().pathname();
 
 	match json(path, quarantined).await {
 		Ok(response) => template(WikiTemplate {
@@ -345,7 +345,7 @@ pub async fn sidebar(req: Request) -> Result<Response, String> {
 
 	// Build the Reddit JSON API url
 	let path: String = format!("/r/{}/about.json?raw_json=1", sub);
-	let url = req.url();
+	let url = req.uri().pathname();
 
 	// Send a request to the url
 	match json(path, quarantined).await {

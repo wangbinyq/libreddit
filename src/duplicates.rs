@@ -195,7 +195,7 @@ pub async fn item(req: Request) -> Result<Response, String> {
 					after = response[1]["data"]["after"].as_str().unwrap_or_default().to_string();
 				}
 			}
-			let url = req.url();
+			let url = req.uri().pathname();
 
 			template(DuplicatesTemplate {
 				params: DuplicatesParams { before, after, sort },

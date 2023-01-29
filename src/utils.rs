@@ -854,7 +854,7 @@ pub fn redirect(path: String) -> Response {
 
 /// Renders a generic error landing page.
 pub async fn error(req: Request, msg: impl ToString) -> Result<Response, String> {
-	let url = req.url();
+	let url = req.uri().pathname();
 	let body = ErrorTemplate {
 		msg: msg.to_string(),
 		prefs: Preferences::new(&req),
@@ -890,7 +890,7 @@ pub fn sfw_only() -> bool {
 /// "show NSFW posts" in settings.
 pub async fn nsfw_landing(req: Request) -> Result<Response, JsValue> {
 	let res_type: ResourceType;
-	let url = req.url().to_string();
+	let url = req.uri().pathname();
 
 	// Determine from the request URL if the resource is a subreddit, a user
 	// page, or a post.
