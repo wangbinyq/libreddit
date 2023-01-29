@@ -841,7 +841,8 @@ pub fn template(t: impl Template) -> Result<Response, String> {
 }
 
 pub fn redirect(path: String) -> Response {
-	Response::redirect_with_status(&path, 302).unwrap()
+	let url = Url::new_with_base(&path, "http://127.0.0.1:8000/").ok().map(|s| s.href()).unwrap_or_default();
+	Response::redirect_with_status(&url, 302).unwrap()
 }
 
 /// Renders a generic error landing page.
