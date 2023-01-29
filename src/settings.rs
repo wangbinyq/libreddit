@@ -59,7 +59,8 @@ pub async fn set(req: Request) -> Result<Response, String> {
 	let mut response = redirect("/settings".to_string());
 
 	for &name in &PREFS {
-		match form.get_all(name).get(1).as_string() {
+		let data = form.get_all(name);
+		match data.get(data.length() - 1).as_string() {
 			Some(value) => response.insert_cookie(
 				Cookie::build(name.to_owned(), value.clone())
 					.path("/")
