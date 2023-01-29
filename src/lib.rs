@@ -253,9 +253,5 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 
 #[wasm_bindgen]
 pub async fn serve(req: Request) -> Result<Response, String> {
-	let url = req.url();
-
-	let res = SERVER.serve(req).await?;
-
-	Ok(res)
+	SERVER.serve(req).await
 }
