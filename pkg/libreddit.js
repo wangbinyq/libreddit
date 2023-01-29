@@ -235,25 +235,6 @@ export function serve(req) {
     return takeObject(ret);
 }
 
-let cachedUint32Memory0 = new Uint32Array();
-
-function getUint32Memory0() {
-    if (cachedUint32Memory0.byteLength === 0) {
-        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32Memory0;
-}
-
-function getArrayJsValueFromWasm0(ptr, len) {
-    const mem = getUint32Memory0();
-    const slice = mem.subarray(ptr / 4, ptr / 4 + len);
-    const result = [];
-    for (let i = 0; i < slice.length; i++) {
-        result.push(takeObject(slice[i]));
-    }
-    return result;
-}
-
 function handleError(f, args) {
     try {
         return f.apply(this, args);
@@ -261,7 +242,7 @@ function handleError(f, args) {
         wasm.__wbindgen_export_5(addHeapObject(e));
     }
 }
-function __wbg_adapter_70(arg0, arg1, arg2, arg3) {
+function __wbg_adapter_68(arg0, arg1, arg2, arg3) {
     wasm.__wbindgen_export_6(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
@@ -472,7 +453,7 @@ function getImports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_70(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_68(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -567,8 +548,8 @@ function getImports() {
         const ret = result;
         return ret;
     };
-    imports.wbg.__wbg_get_f1d748260e3dfd1f = function(arg0, arg1, arg2) {
-        const ret = getObject(arg0).get(getStringFromWasm0(arg1, arg2));
+    imports.wbg.__wbg_getAll_93de8238e039f55c = function(arg0, arg1, arg2) {
+        const ret = getObject(arg0).getAll(getStringFromWasm0(arg1, arg2));
         return addHeapObject(ret);
     };
     imports.wbg.__wbg_json_eb16b12f372e850c = function() { return handleError(function (arg0) {
@@ -612,26 +593,6 @@ function getImports() {
         getInt32Memory0()[arg0 / 4 + 1] = len0;
         getInt32Memory0()[arg0 / 4 + 0] = ptr0;
     };
-    imports.wbg.__wbg_newwithbase_41b4a8c94dd8c467 = function() { return handleError(function (arg0, arg1, arg2, arg3) {
-        const ret = new URL(getStringFromWasm0(arg0, arg1), getStringFromWasm0(arg2, arg3));
-        return addHeapObject(ret);
-    }, arguments) };
-    imports.wbg.__wbg_href_9b462d09b5f8b378 = function(arg0, arg1) {
-        const ret = getObject(arg1).href;
-        const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_export_0, wasm.__wbindgen_export_1);
-        const len0 = WASM_VECTOR_LEN;
-        getInt32Memory0()[arg0 / 4 + 1] = len0;
-        getInt32Memory0()[arg0 / 4 + 0] = ptr0;
-    };
-    imports.wbg.__wbg_log_1f7f93998ab961f7 = function(arg0, arg1) {
-        var v0 = getArrayJsValueFromWasm0(arg0, arg1).slice();
-        wasm.__wbindgen_export_4(arg0, arg1 * 4);
-        console.log(...v0);
-    };
-    imports.wbg.__wbg_redirect_2d9ae3f021c05abb = function() { return handleError(function (arg0, arg1, arg2) {
-        const ret = Response.redirect(getStringFromWasm0(arg0, arg1), arg2);
-        return addHeapObject(ret);
-    }, arguments) };
     imports.wbg.__wbg_setsearch_40007c2a91333011 = function(arg0, arg1, arg2) {
         getObject(arg0).search = getStringFromWasm0(arg1, arg2);
     };
@@ -663,7 +624,7 @@ function getImports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_70(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_68(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -765,7 +726,7 @@ function getImports() {
         const ret = arg0;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1582 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper1574 = function(arg0, arg1, arg2) {
         const ret = makeMutClosure(arg0, arg1, 142, __wbg_adapter_44);
         return addHeapObject(ret);
     };
@@ -783,7 +744,6 @@ function finalizeInit(instance, module) {
     cachedBigInt64Memory0 = new BigInt64Array();
     cachedFloat64Memory0 = new Float64Array();
     cachedInt32Memory0 = new Int32Array();
-    cachedUint32Memory0 = new Uint32Array();
     cachedUint8Memory0 = new Uint8Array();
 
 
