@@ -6,11 +6,11 @@ use crate::subreddit::{can_access_quarantine, quarantine};
 use crate::utils::{error, filter_posts, get_filters, nsfw_landing, parse_post, setting, template, Post, Preferences};
 
 use askama::Template;
-use hyper::{Body, Request, Response};
 use serde_json::Value;
 use std::borrow::ToOwned;
 use std::collections::HashSet;
 use std::vec::Vec;
+use web_sys::{Request, Response};
 
 /// DuplicatesParams contains the parameters in the URL.
 struct DuplicatesParams {
@@ -52,8 +52,8 @@ struct DuplicatesTemplate {
 
 /// Make the GET request to Reddit. It assumes `req` is the appropriate Reddit
 /// REST endpoint for enumerating post duplicates.
-pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
-	let path: String = format!("{}.json?{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default());
+pub async fn item(req: Request) -> Result<Response, String> {
+	let path: String = format!("{}.json{}&raw_json=1", req.uri().pathname(), req.uri().search());
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
 
@@ -71,7 +71,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 			// NSFW, but we have also disabled the display of NSFW content
 			// or if the instance is SFW-only.
 			if post.nsfw && (setting(&req, "show_nsfw") != "on" || crate::utils::sfw_only()) {
-				return Ok(nsfw_landing(req).await.unwrap_or_default());
+				return Ok(nsfw_landing(req).await.unwrap());
 			}
 
 			let filters = get_filters(&req);
@@ -123,7 +123,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 				//
 				// In practice, here should only ever be one of "before=" or
 				// "after=" and never both.
-				let query_str = req.uri().query().unwrap_or_default().to_string();
+				let query_str = req.uri().search()[1..].to_string();
 
 				if !query_str.is_empty() {
 					for param in query_str.split('&') {
@@ -174,7 +174,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 					// We'll mitigate that by requesting at most one duplicate.
 					let new_path: String = format!(
 						"{}.json?before=t3_{}&sort={}&limit=1&raw_json=1",
-						req.uri().path(),
+						req.uri().pathname(),
 						&duplicates[0].id,
 						if sort.is_empty() { "num_comments".to_string() } else { sort.clone() }
 					);
@@ -195,7 +195,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 					after = response[1]["data"]["after"].as_str().unwrap_or_default().to_string();
 				}
 			}
-			let url = req.uri().to_string();
+			let url = req.url();
 
 			template(DuplicatesTemplate {
 				params: DuplicatesParams { before, after, sort },

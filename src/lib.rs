@@ -14,95 +14,102 @@ mod utils;
 
 // Import Crates
 use futures_lite::FutureExt;
-use hyper::{header::HeaderValue, Body, Request, Response};
 
 mod client;
 use client::{canonical_path, proxy};
-use server::RequestExt;
-use utils::{error, redirect, ThemeAssets};
+use once_cell::sync::Lazy;
+use server::{RequestExt, Server};
+use utils::{error, redirect};
+use wasm_bindgen::prelude::*;
+use web_sys::{Request, Response};
 
 mod server;
 
 // Create Services
 
 // Required for the manifest to be valid
-async fn pwa_logo() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/png")
-			.body(include_bytes!("../static/logo.png").as_ref().into())
-			.unwrap_or_default(),
-	)
-}
+// async fn pwa_logo() -> Result<Response, String> {
+// 	Ok(
+// 		http::Response::builder()
+// 			.status(200)
+// 			.header("content-type", "image/png")
+// 			.body(include_bytes!("../static/logo.png").as_ref())
+// 			.unwrap_or_default()
+// 			.into(),
+// 	)
+// }
 
-// Required for iOS App Icons
-async fn iphone_logo() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/png")
-			.body(include_bytes!("../static/apple-touch-icon.png").as_ref().into())
-			.unwrap_or_default(),
-	)
-}
+// // Required for iOS App Icons
+// async fn iphone_logo() -> Result<Response, String> {
+// 	Ok(
+// 		http::Response::builder()
+// 			.status(200)
+// 			.header("content-type", "image/png")
+// 			.body(include_bytes!("../static/apple-touch-icon.png").as_ref())
+// 			.unwrap_or_default()
+// 			.into(),
+// 	)
+// }
 
-async fn favicon() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "image/vnd.microsoft.icon")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(include_bytes!("../static/favicon.ico").as_ref().into())
-			.unwrap_or_default(),
-	)
-}
+// async fn favicon() -> Result<Response, String> {
+// 	Ok(
+// 		http::Response::builder()
+// 			.status(200)
+// 			.header("content-type", "image/vnd.microsoft.icon")
+// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+// 			.body(include_bytes!("../static/favicon.ico").as_ref())
+// 			.unwrap_or_default()
+// 			.into(),
+// 	)
+// }
 
-async fn font() -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "font/woff2")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(include_bytes!("../static/Inter.var.woff2").as_ref().into())
-			.unwrap_or_default(),
-	)
-}
+// async fn font() -> Result<Response, String> {
+// 	Ok(
+// 		http::Response::builder()
+// 			.status(200)
+// 			.header("content-type", "font/woff2")
+// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+// 			.body(include_bytes!("../static/Inter.var.woff2").as_ref())
+// 			.unwrap_or_default()
+// 			.into(),
+// 	)
+// }
 
-async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response<Body>, String> {
-	let mut res = Response::builder()
-		.status(200)
-		.header("content-type", content_type)
-		.body(body.to_string().into())
-		.unwrap_or_default();
+// async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response, String> {
+// 	let mut res = http::Response::builder()
+// 		.status(200)
+// 		.header("content-type", content_type)
+// 		.body(body.to_string())
+// 		.unwrap_or_default();
 
-	if cache {
-		if let Ok(val) = HeaderValue::from_str("public, max-age=1209600, s-maxage=86400") {
-			res.headers_mut().insert("Cache-Control", val);
-		}
-	}
+// 	if cache {
+// 		if let Ok(val) = HeaderValue::from_str("public, max-age=1209600, s-maxage=86400") {
+// 			res.headers_mut().insert("Cache-Control", val);
+// 		}
+// 	}
 
-	Ok(res)
-}
+// 	Ok(res.into())
+// }
 
-async fn style() -> Result<Response<Body>, String> {
-	let mut res = include_str!("../static/style.css").to_string();
-	for file in ThemeAssets::iter() {
-		res.push('\n');
-		let theme = ThemeAssets::get(file.as_ref()).unwrap();
-		res.push_str(std::str::from_utf8(theme.data.as_ref()).unwrap());
-	}
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "text/css")
-			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
-			.body(res.to_string().into())
-			.unwrap_or_default(),
-	)
-}
+// async fn style() -> Result<Response, String> {
+// 	let mut res = include_str!("../static/style.css").to_string();
+// 	for file in ThemeAssets::iter() {
+// 		res.push('\n');
+// 		let theme = ThemeAssets::get(file.as_ref()).unwrap();
+// 		res.push_str(std::str::from_utf8(theme.data.as_ref()).unwrap());
+// 	}
+// 	Ok(
+// 		http::Response::builder()
+// 			.status(200)
+// 			.header("content-type", "text/css")
+// 			.header("Cache-Control", "public, max-age=1209600, s-maxage=86400")
+// 			.body(res.to_string())
+// 			.unwrap_or_default()
+// 			.into(),
+// 	)
+// }
 
-pub fn main() {
+static SERVER: Lazy<Server> = Lazy::new(|| {
 	println!("Starting Libreddit...");
 
 	// Begin constructing a server
@@ -117,119 +124,119 @@ pub fn main() {
 	};
 
 	// Read static files
-	app.at("/style.css").get(|_| style().boxed());
-	app
-		.at("/manifest.json")
-		.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed());
-	app
-		.at("/robots.txt")
-		.get(|_| resource("User-agent: *\nDisallow: /u/\nDisallow: /user/", "text/plain", true).boxed());
-	app.at("/favicon.ico").get(|_| favicon().boxed());
-	app.at("/logo.png").get(|_| pwa_logo().boxed());
-	app.at("/Inter.var.woff2").get(|_| font().boxed());
-	app.at("/touch-icon-iphone.png").get(|_| iphone_logo().boxed());
-	app.at("/apple-touch-icon.png").get(|_| iphone_logo().boxed());
-	app
-		.at("/playHLSVideo.js")
-		.get(|_| resource(include_str!("../static/playHLSVideo.js"), "text/javascript", false).boxed());
-	app
-		.at("/hls.min.js")
-		.get(|_| resource(include_str!("../static/hls.min.js"), "text/javascript", false).boxed());
+	// app.at("/style.css").get(|_| style().boxed_local());
+	// app
+	// 	.at("/manifest.json")
+	// 	.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed_local());
+	// app
+	// 	.at("/robots.txt")
+	// 	.get(|_| resource("User-agent: *\nDisallow: /u/\nDisallow: /user/", "text/plain", true).boxed_local());
+	// app.at("/favicon.ico").get(|_| favicon().boxed_local());
+	// app.at("/logo.png").get(|_| pwa_logo().boxed_local());
+	// app.at("/Inter.var.woff2").get(|_| font().boxed_local());
+	// app.at("/touch-icon-iphone.png").get(|_| iphone_logo().boxed_local());
+	// app.at("/apple-touch-icon.png").get(|_| iphone_logo().boxed_local());
+	// app
+	// 	.at("/playHLSVideo.js")
+	// 	.get(|_| resource(include_str!("../static/playHLSVideo.js"), "text/javascript", false).boxed_local());
+	// app
+	// 	.at("/hls.min.js")
+	// 	.get(|_| resource(include_str!("../static/hls.min.js"), "text/javascript", false).boxed_local());
 
 	// Proxy media through Libreddit
-	app.at("/vid/:id/:size").get(|r| proxy(r, "https://v.redd.it/{id}/DASH_{size}").boxed());
-	app.at("/hls/:id/*path").get(|r| proxy(r, "https://v.redd.it/{id}/{path}").boxed());
-	app.at("/img/*path").get(|r| proxy(r, "https://i.redd.it/{path}").boxed());
-	app.at("/thumb/:point/:id").get(|r| proxy(r, "https://{point}.thumbs.redditmedia.com/{id}").boxed());
-	app.at("/emoji/:id/:name").get(|r| proxy(r, "https://emoji.redditmedia.com/{id}/{name}").boxed());
+	app.at("/vid/:id/:size").get(|r| proxy(r, "https://v.redd.it/{id}/DASH_{size}").boxed_local());
+	app.at("/hls/:id/*path").get(|r| proxy(r, "https://v.redd.it/{id}/{path}").boxed_local());
+	app.at("/img/*path").get(|r| proxy(r, "https://i.redd.it/{path}").boxed_local());
+	app.at("/thumb/:point/:id").get(|r| proxy(r, "https://{point}.thumbs.redditmedia.com/{id}").boxed_local());
+	app.at("/emoji/:id/:name").get(|r| proxy(r, "https://emoji.redditmedia.com/{id}/{name}").boxed_local());
 	app
 		.at("/preview/:loc/award_images/:fullname/:id")
-		.get(|r| proxy(r, "https://{loc}view.redd.it/award_images/{fullname}/{id}").boxed());
-	app.at("/preview/:loc/:id").get(|r| proxy(r, "https://{loc}view.redd.it/{id}").boxed());
-	app.at("/style/*path").get(|r| proxy(r, "https://styles.redditmedia.com/{path}").boxed());
-	app.at("/static/*path").get(|r| proxy(r, "https://www.redditstatic.com/{path}").boxed());
+		.get(|r| proxy(r, "https://{loc}view.redd.it/award_images/{fullname}/{id}").boxed_local());
+	app.at("/preview/:loc/:id").get(|r| proxy(r, "https://{loc}view.redd.it/{id}").boxed_local());
+	app.at("/style/*path").get(|r| proxy(r, "https://styles.redditmedia.com/{path}").boxed_local());
+	app.at("/static/*path").get(|r| proxy(r, "https://www.redditstatic.com/{path}").boxed_local());
 
 	// Browse user profile
 	app
 		.at("/u/:name")
-		.get(|r| async move { Ok(redirect(format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed());
-	app.at("/u/:name/comments/:id/:title").get(|r| post::item(r).boxed());
-	app.at("/u/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
+		.get(|r| async move { Ok(redirect(format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed_local());
+	app.at("/u/:name/comments/:id/:title").get(|r| post::item(r).boxed_local());
+	app.at("/u/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed_local());
 
-	app.at("/user/[deleted]").get(|req| error(req, "User has deleted their account".to_string()).boxed());
-	app.at("/user/:name").get(|r| user::profile(r).boxed());
-	app.at("/user/:name/:listing").get(|r| user::profile(r).boxed());
-	app.at("/user/:name/comments/:id").get(|r| post::item(r).boxed());
-	app.at("/user/:name/comments/:id/:title").get(|r| post::item(r).boxed());
-	app.at("/user/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
+	app.at("/user/[deleted]").get(|req| error(req, "User has deleted their account".to_string()).boxed_local());
+	app.at("/user/:name").get(|r| user::profile(r).boxed_local());
+	app.at("/user/:name/:listing").get(|r| user::profile(r).boxed_local());
+	app.at("/user/:name/comments/:id").get(|r| post::item(r).boxed_local());
+	app.at("/user/:name/comments/:id/:title").get(|r| post::item(r).boxed_local());
+	app.at("/user/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed_local());
 
 	// Configure settings
-	app.at("/settings").get(|r| settings::get(r).boxed()).post(|r| settings::set(r).boxed());
-	app.at("/settings/restore").get(|r| settings::restore(r).boxed());
-	app.at("/settings/update").get(|r| settings::update(r).boxed());
+	app.at("/settings").get(|r| settings::get(r).boxed_local()).post(|r| settings::set(r).boxed_local());
+	app.at("/settings/restore").get(|r| settings::restore(r).boxed_local());
+	app.at("/settings/update").get(|r| settings::update(r).boxed_local());
 
 	// Subreddit services
 	app
 		.at("/r/:sub")
-		.get(|r| subreddit::community(r).boxed())
-		.post(|r| subreddit::add_quarantine_exception(r).boxed());
+		.get(|r| subreddit::community(r).boxed_local())
+		.post(|r| subreddit::add_quarantine_exception(r).boxed_local());
 
 	app
 		.at("/r/u_:name")
-		.get(|r| async move { Ok(redirect(format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed());
+		.get(|r| async move { Ok(redirect(format!("/user/{}", r.param("name").unwrap_or_default()))) }.boxed_local());
 
-	app.at("/r/:sub/subscribe").post(|r| subreddit::subscriptions_filters(r).boxed());
-	app.at("/r/:sub/unsubscribe").post(|r| subreddit::subscriptions_filters(r).boxed());
-	app.at("/r/:sub/filter").post(|r| subreddit::subscriptions_filters(r).boxed());
-	app.at("/r/:sub/unfilter").post(|r| subreddit::subscriptions_filters(r).boxed());
+	app.at("/r/:sub/subscribe").post(|r| subreddit::subscriptions_filters(r).boxed_local());
+	app.at("/r/:sub/unsubscribe").post(|r| subreddit::subscriptions_filters(r).boxed_local());
+	app.at("/r/:sub/filter").post(|r| subreddit::subscriptions_filters(r).boxed_local());
+	app.at("/r/:sub/unfilter").post(|r| subreddit::subscriptions_filters(r).boxed_local());
 
-	app.at("/r/:sub/comments/:id").get(|r| post::item(r).boxed());
-	app.at("/r/:sub/comments/:id/:title").get(|r| post::item(r).boxed());
-	app.at("/r/:sub/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
-	app.at("/comments/:id").get(|r| post::item(r).boxed());
-	app.at("/comments/:id/comments").get(|r| post::item(r).boxed());
-	app.at("/comments/:id/comments/:comment_id").get(|r| post::item(r).boxed());
-	app.at("/comments/:id/:title").get(|r| post::item(r).boxed());
-	app.at("/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
+	app.at("/r/:sub/comments/:id").get(|r| post::item(r).boxed_local());
+	app.at("/r/:sub/comments/:id/:title").get(|r| post::item(r).boxed_local());
+	app.at("/r/:sub/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed_local());
+	app.at("/comments/:id").get(|r| post::item(r).boxed_local());
+	app.at("/comments/:id/comments").get(|r| post::item(r).boxed_local());
+	app.at("/comments/:id/comments/:comment_id").get(|r| post::item(r).boxed_local());
+	app.at("/comments/:id/:title").get(|r| post::item(r).boxed_local());
+	app.at("/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed_local());
 
-	app.at("/r/:sub/duplicates/:id").get(|r| duplicates::item(r).boxed());
-	app.at("/r/:sub/duplicates/:id/:title").get(|r| duplicates::item(r).boxed());
-	app.at("/duplicates/:id").get(|r| duplicates::item(r).boxed());
-	app.at("/duplicates/:id/:title").get(|r| duplicates::item(r).boxed());
+	app.at("/r/:sub/duplicates/:id").get(|r| duplicates::item(r).boxed_local());
+	app.at("/r/:sub/duplicates/:id/:title").get(|r| duplicates::item(r).boxed_local());
+	app.at("/duplicates/:id").get(|r| duplicates::item(r).boxed_local());
+	app.at("/duplicates/:id/:title").get(|r| duplicates::item(r).boxed_local());
 
-	app.at("/r/:sub/search").get(|r| search::find(r).boxed());
+	app.at("/r/:sub/search").get(|r| search::find(r).boxed_local());
 
 	app
 		.at("/r/:sub/w")
-		.get(|r| async move { Ok(redirect(format!("/r/{}/wiki", r.param("sub").unwrap_or_default()))) }.boxed());
+		.get(|r| async move { Ok(redirect(format!("/r/{}/wiki", r.param("sub").unwrap_or_default()))) }.boxed_local());
 	app
 		.at("/r/:sub/w/*page")
-		.get(|r| async move { Ok(redirect(format!("/r/{}/wiki/{}", r.param("sub").unwrap_or_default(), r.param("wiki").unwrap_or_default()))) }.boxed());
-	app.at("/r/:sub/wiki").get(|r| subreddit::wiki(r).boxed());
-	app.at("/r/:sub/wiki/*page").get(|r| subreddit::wiki(r).boxed());
+		.get(|r| async move { Ok(redirect(format!("/r/{}/wiki/{}", r.param("sub").unwrap_or_default(), r.param("wiki").unwrap_or_default()))) }.boxed_local());
+	app.at("/r/:sub/wiki").get(|r| subreddit::wiki(r).boxed_local());
+	app.at("/r/:sub/wiki/*page").get(|r| subreddit::wiki(r).boxed_local());
 
-	app.at("/r/:sub/about/sidebar").get(|r| subreddit::sidebar(r).boxed());
+	app.at("/r/:sub/about/sidebar").get(|r| subreddit::sidebar(r).boxed_local());
 
-	app.at("/r/:sub/:sort").get(|r| subreddit::community(r).boxed());
+	app.at("/r/:sub/:sort").get(|r| subreddit::community(r).boxed_local());
 
 	// Front page
-	app.at("/").get(|r| subreddit::community(r).boxed());
+	app.at("/").get(|r| subreddit::community(r).boxed_local());
 
 	// View Reddit wiki
-	app.at("/w").get(|_| async { Ok(redirect("/wiki".to_string())) }.boxed());
+	app.at("/w").get(|_| async { Ok(redirect("/wiki".to_string())) }.boxed_local());
 	app
 		.at("/w/*page")
-		.get(|r| async move { Ok(redirect(format!("/wiki/{}", r.param("page").unwrap_or_default()))) }.boxed());
-	app.at("/wiki").get(|r| subreddit::wiki(r).boxed());
-	app.at("/wiki/*page").get(|r| subreddit::wiki(r).boxed());
+		.get(|r| async move { Ok(redirect(format!("/wiki/{}", r.param("page").unwrap_or_default()))) }.boxed_local());
+	app.at("/wiki").get(|r| subreddit::wiki(r).boxed_local());
+	app.at("/wiki/*page").get(|r| subreddit::wiki(r).boxed_local());
 
 	// Search all of Reddit
-	app.at("/search").get(|r| search::find(r).boxed());
+	app.at("/search").get(|r| search::find(r).boxed_local());
 
 	// Handle about pages
-	app.at("/about").get(|req| error(req, "About pages aren't added yet".to_string()).boxed());
+	app.at("/about").get(|req| error(req, "About pages aren't added yet".to_string()).boxed_local());
 
-	app.at("/:id").get(|req: Request<Body>| {
+	app.at("/:id").get(|req: Request| {
 		Box::pin(async move {
 			match req.param("id").as_deref() {
 				// Sort front page
@@ -251,5 +258,14 @@ pub fn main() {
 	});
 
 	// Default service in case no routes match
-	app.at("/*").get(|req| error(req, "Nothing here".to_string()).boxed());
+	app.at("/*").get(|req| error(req, "Nothing here".to_string()).boxed_local());
+
+	app
+});
+
+#[wasm_bindgen]
+pub async fn serve(req: Request) -> Result<Response, String> {
+	let res = SERVER.serve(req).await;
+
+	res
 }

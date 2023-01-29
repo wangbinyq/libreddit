@@ -3,8 +3,8 @@ use crate::client::json;
 use crate::server::RequestExt;
 use crate::utils::{error, filter_posts, format_url, get_filters, nsfw_landing, param, setting, template, Post, Preferences, User};
 use askama::Template;
-use hyper::{Body, Request, Response};
 use time::{macros::format_description, OffsetDateTime};
+use web_sys::{Request, Response};
 
 // STRUCTS
 #[derive(Template)]
@@ -30,17 +30,17 @@ struct UserTemplate {
 }
 
 // FUNCTIONS
-pub async fn profile(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn profile(req: Request) -> Result<Response, String> {
 	let listing = req.param("listing").unwrap_or_else(|| "overview".to_string());
 
 	// Build the Reddit JSON API path
 	let path = format!(
-		"/user/{}/{}.json?{}&raw_json=1",
+		"/user/{}/{}.json{}&raw_json=1",
 		req.param("name").unwrap_or_else(|| "reddit".to_string()),
 		listing,
-		req.uri().query().unwrap_or_default(),
+		req.uri().search(),
 	);
-	let url = String::from(req.uri().path_and_query().map_or("", |val| val.as_str()));
+	let url = format!("{}{}", req.uri().pathname(), req.uri().search());
 	let redirect_url = url[1..].replace('?', "%3F").replace('&', "%26");
 
 	// Retrieve other variables from Libreddit request
@@ -54,7 +54,7 @@ pub async fn profile(req: Request<Body>) -> Result<Response<Body>, String> {
 	// but we have also disabled the display of NSFW content or if the instance
 	// is SFW-only.
 	if user.nsfw && (setting(&req, "show_nsfw") != "on" || crate::utils::sfw_only()) {
-		return Ok(nsfw_landing(req).await.unwrap_or_default());
+		return Ok(nsfw_landing(req).await.unwrap());
 	}
 
 	let filters = get_filters(&req);

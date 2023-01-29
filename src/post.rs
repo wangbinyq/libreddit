@@ -5,7 +5,7 @@ use crate::subreddit::{can_access_quarantine, quarantine};
 use crate::utils::{
 	error, format_num, get_filters, nsfw_landing, param, parse_post, rewrite_urls, setting, template, time, val, Author, Awards, Comment, Flair, FlairPart, Post, Preferences,
 };
-use hyper::{Body, Request, Response};
+use web_sys::{Request, Response};
 
 use askama::Template;
 use std::collections::HashSet;
@@ -22,9 +22,9 @@ struct PostTemplate {
 	url: String,
 }
 
-pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn item(req: Request) -> Result<Response, String> {
 	// Build Reddit API path
-	let mut path: String = format!("{}.json?{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default());
+	let mut path: String = format!("{}.json{}&raw_json=1", req.uri().pathname(), req.uri().search());
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
 
@@ -37,7 +37,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 		if default_sort.is_empty() {
 			String::new()
 		} else {
-			path = format!("{}.json?{}&sort={}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default(), default_sort);
+			path = format!("{}.json{}&sort={}&raw_json=1", req.uri().pathname(), req.uri().search(), default_sort);
 			default_sort
 		}
 	});
@@ -60,11 +60,11 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 			// NSFW, but we have also disabled the display of NSFW content
 			// or if the instance is SFW-only.
 			if post.nsfw && (setting(&req, "show_nsfw") != "on" || crate::utils::sfw_only()) {
-				return Ok(nsfw_landing(req).await.unwrap_or_default());
+				return Ok(nsfw_landing(req).await.unwrap());
 			}
 
 			let comments = parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req);
-			let url = req.uri().to_string();
+			let url = req.url();
 
 			// Use the Post and Comment structs to generate a website to show users
 			template(PostTemplate {
@@ -89,7 +89,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 }
 
 // COMMENTS
-fn parse_comments(json: &serde_json::Value, post_link: &str, post_author: &str, highlighted_comment: &str, filters: &HashSet<String>, req: &Request<Body>) -> Vec<Comment> {
+fn parse_comments(json: &serde_json::Value, post_link: &str, post_author: &str, highlighted_comment: &str, filters: &HashSet<String>, req: &Request) -> Vec<Comment> {
 	// Parse the comment JSON into a Vector of Comments
 	let comments = json["data"]["children"].as_array().map_or(Vec::new(), std::borrow::ToOwned::to_owned);
 

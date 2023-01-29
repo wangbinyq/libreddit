@@ -4,7 +4,7 @@
 use crate::{client::json, server::RequestExt};
 use askama::Template;
 use cookie::Cookie;
-use hyper::{Body, Request, Response};
+use js_sys::Promise;
 use regex::Regex;
 use rust_embed::RustEmbed;
 use serde_json::Value;
@@ -12,7 +12,8 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::str::FromStr;
 use time::{macros::format_description, Duration, OffsetDateTime};
-use url::Url;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::{Request, Response, ResponseInit, Url};
 
 /// Write a message to stderr on debug mode. This function is a no-op on
 /// release code.
@@ -519,7 +520,7 @@ pub struct ThemeAssets;
 
 impl Preferences {
 	// Build preferences from cookies
-	pub fn new(req: &Request<Body>) -> Self {
+	pub fn new(req: &Request) -> Self {
 		// Read available theme names from embedded css files.
 		// Always make the default "system" theme available.
 		let mut themes = vec!["system".to_string()];
@@ -548,7 +549,7 @@ impl Preferences {
 }
 
 /// Gets a `HashSet` of filters from the cookie in the given `Request`.
-pub fn get_filters(req: &Request<Body>) -> HashSet<String> {
+pub fn get_filters(req: &Request) -> HashSet<String> {
 	setting(req, "filters").split('+').map(String::from).filter(|s| !s.is_empty()).collect::<HashSet<String>>()
 }
 
@@ -666,19 +667,11 @@ pub async fn parse_post(post: &serde_json::Value) -> Post {
 
 // Grab a query parameter from a url
 pub fn param(path: &str, value: &str) -> Option<String> {
-	Some(
-		Url::parse(format!("https://libredd.it/{}", path).as_str())
-			.ok()?
-			.query_pairs()
-			.into_owned()
-			.collect::<HashMap<_, _>>()
-			.get(value)?
-			.clone(),
-	)
+	Some(Url::new(format!("https://libredd.it/{}", path).as_str()).ok()?.search_params().get(value)?.clone())
 }
 
 // Retrieve the value of a setting by name
-pub fn setting(req: &Request<Body>, name: &str) -> String {
+pub fn setting(req: &Request, name: &str) -> String {
 	// Parse a cookie value from request
 	req
 		.cookie(name)
@@ -695,7 +688,7 @@ pub fn setting(req: &Request<Body>, name: &str) -> String {
 }
 
 // Detect and redirect in the event of a random subreddit
-pub async fn catch_random(sub: &str, additional: &str) -> Result<Response<Body>, String> {
+pub async fn catch_random(sub: &str, additional: &str) -> Result<Response, String> {
 	if sub == "random" || sub == "randnsfw" {
 		let new_sub = json(format!("/r/{}/about.json?raw_json=1", sub), false).await?["data"]["display_name"]
 			.as_str()
@@ -712,8 +705,9 @@ pub fn format_url(url: &str) -> String {
 	if url.is_empty() || url == "self" || url == "default" || url == "nsfw" || url == "spoiler" {
 		String::new()
 	} else {
-		Url::parse(url).map_or(url.to_string(), |parsed| {
-			let domain = parsed.domain().unwrap_or_default();
+		Url::new(url).map_or(url.to_string(), |parsed| {
+			let domain = parsed.hostname();
+			let domain = domain.as_str();
 
 			let capture = |regex: &str, format: &str, segments: i16| {
 				Regex::new(regex).map_or(String::new(), |re| {
@@ -836,28 +830,19 @@ pub fn val(j: &Value, k: &str) -> String {
 // NETWORKING
 //
 
-pub fn template(t: impl Template) -> Result<Response<Body>, String> {
-	Ok(
-		Response::builder()
-			.status(200)
-			.header("content-type", "text/html")
-			.body(t.render().unwrap_or_default().into())
-			.unwrap_or_default(),
-	)
+pub fn template(t: impl Template) -> Result<Response, String> {
+	let body = t.render().ok();
+	// content-type
+	Response::new_with_opt_str(body.as_ref().map(|x| &**x)).map_err(wasm_error)
 }
 
-pub fn redirect(path: String) -> Response<Body> {
-	Response::builder()
-		.status(302)
-		.header("content-type", "text/html")
-		.header("Location", &path)
-		.body(format!("Redirecting to <a href=\"{0}\">{0}</a>...", path).into())
-		.unwrap_or_default()
+pub fn redirect(path: String) -> Response {
+	Response::redirect_with_status(&path, 302).unwrap()
 }
 
 /// Renders a generic error landing page.
-pub async fn error(req: Request<Body>, msg: impl ToString) -> Result<Response<Body>, String> {
-	let url = req.uri().to_string();
+pub async fn error(req: Request, msg: impl ToString) -> Result<Response, String> {
+	let url = req.url();
 	let body = ErrorTemplate {
 		msg: msg.to_string(),
 		prefs: Preferences::new(&req),
@@ -866,7 +851,9 @@ pub async fn error(req: Request<Body>, msg: impl ToString) -> Result<Response<Bo
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(404).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	let mut init = ResponseInit::new();
+	init.status(404);
+	Response::new_with_opt_str_and_init(Some(body.as_str()), &init).map_err(wasm_error)
 }
 
 /// Returns true if the config/env variable `LIBREDDIT_SFW_ONLY` carries the
@@ -885,9 +872,9 @@ pub fn sfw_only() -> bool {
 
 /// Renders the landing page for NSFW content when the user has not enabled
 /// "show NSFW posts" in settings.
-pub async fn nsfw_landing(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn nsfw_landing(req: Request) -> Result<Response, JsValue> {
 	let res_type: ResourceType;
-	let url = req.uri().to_string();
+	let url = req.url().to_string();
 
 	// Determine from the request URL if the resource is a subreddit, a user
 	// page, or a post.
@@ -911,7 +898,25 @@ pub async fn nsfw_landing(req: Request<Body>) -> Result<Response<Body>, String> 
 	.render()
 	.unwrap_or_default();
 
-	Ok(Response::builder().status(403).header("content-type", "text/html").body(body.into()).unwrap_or_default())
+	let mut init = ResponseInit::new();
+	init.status(403);
+
+	Response::new_with_opt_str_and_init(Some(body.as_str()), &init)
+}
+
+pub async fn promise<T>(promise: Promise) -> Result<T, String>
+where
+	T: JsCast,
+{
+	use wasm_bindgen_futures::JsFuture;
+
+	let js_val = JsFuture::from(promise).await.map_err(|val| format!("{:?}", val))?;
+
+	js_val.dyn_into::<T>().map_err(|_js_val| "promise resolved to unexpected type".into())
+}
+
+pub fn wasm_error(val: JsValue) -> String {
+	format!("{:?}", val)
 }
 
 #[cfg(test)]

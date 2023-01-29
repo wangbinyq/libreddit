@@ -6,9 +6,9 @@ use crate::{
 	RequestExt,
 };
 use askama::Template;
-use hyper::{Body, Request, Response};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use web_sys::{Request, Response};
 
 // STRUCTS
 struct SearchParams {
@@ -53,14 +53,14 @@ struct SearchTemplate {
 static REDDIT_URL_MATCH: Lazy<Regex> = Lazy::new(|| Regex::new(r"^https?://([^\./]+\.)*reddit.com/").unwrap());
 
 // SERVICES
-pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn find(req: Request) -> Result<Response, String> {
 	// This ensures that during a search, no NSFW posts are fetched at all
 	let nsfw_results = if setting(&req, "show_nsfw") == "on" && !utils::sfw_only() {
 		"&include_over_18=on"
 	} else {
 		""
 	};
-	let path = format!("{}.json?{}{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default(), nsfw_results);
+	let path = format!("{}.json{}{}&raw_json=1", req.uri().pathname(), req.uri().search(), nsfw_results);
 	let mut query = param(&path, "q").unwrap_or_default();
 	query = REDDIT_URL_MATCH.replace(&query, "").to_string();
 
@@ -93,7 +93,7 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 		Vec::new()
 	};
 
-	let url = String::from(req.uri().path_and_query().map_or("", |val| val.as_str()));
+	let url = format!("{}{}", req.uri().pathname(), req.uri().search());
 
 	// If all requested subs are filtered, we don't need to fetch posts.
 	if sub.split('+').all(|s| filters.contains(s)) {

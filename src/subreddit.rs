@@ -1,12 +1,13 @@
 // CRATES
 use crate::utils::{
-	catch_random, error, filter_posts, format_num, format_url, get_filters, nsfw_landing, param, redirect, rewrite_urls, setting, template, val, Post, Preferences, Subreddit,
+	catch_random, error, filter_posts, format_num, format_url, get_filters, nsfw_landing, param, redirect, rewrite_urls, setting, template, val, wasm_error, Post, Preferences,
+	Subreddit,
 };
 use crate::{client::json, server::ResponseExt, RequestExt};
 use askama::Template;
 use cookie::Cookie;
-use hyper::{Body, Request, Response};
 use time::{Duration, OffsetDateTime};
+use web_sys::{Request, Response, ResponseInit};
 
 // STRUCTS
 #[derive(Template)]
@@ -50,9 +51,9 @@ struct WallTemplate {
 }
 
 // SERVICES
-pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn community(req: Request) -> Result<Response, String> {
 	// Build Reddit API path
-	let root = req.uri().path() == "/";
+	let root = req.uri().pathname() == "/";
 	let subscribed = setting(&req, "subscriptions");
 	let front_page = setting(&req, "front_page");
 	let post_sort = req.cookie("post_sort").map_or_else(|| "hot".to_string(), |c| c.value().to_string());
@@ -84,7 +85,7 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 		subreddit(&sub_name, quarantined).await.unwrap_or_default()
 	} else if sub_name == subscribed {
 		// Subscription feed
-		if req.uri().path().starts_with("/r/") {
+		if req.uri().pathname().starts_with("/r/") {
 			subreddit(&sub_name, quarantined).await.unwrap_or_default()
 		} else {
 			Subreddit::default()
@@ -100,11 +101,11 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 	// Return landing page if this post if this is NSFW community but the user
 	// has disabled the display of NSFW content or if the instance is SFW-only.
 	if sub.nsfw && (setting(&req, "show_nsfw") != "on" || crate::utils::sfw_only()) {
-		return Ok(nsfw_landing(req).await.unwrap_or_default());
+		return Ok(nsfw_landing(req).await.unwrap());
 	}
 
-	let path = format!("/r/{}/{}.json?{}&raw_json=1", sub_name.clone(), sort, req.uri().query().unwrap_or_default());
-	let url = String::from(req.uri().path_and_query().map_or("", |val| val.as_str()));
+	let path = format!("/r/{}/{}.json{}&raw_json=1", sub_name.clone(), sort, req.uri().search());
+	let url = format!("{}{}", req.uri().pathname(), req.uri().search());
 	let redirect_url = url[1..].replace('?', "%3F").replace('&', "%26").replace('+', "%2B");
 	let filters = get_filters(&req);
 
@@ -153,27 +154,26 @@ pub async fn community(req: Request<Body>) -> Result<Response<Body>, String> {
 	}
 }
 
-pub fn quarantine(req: Request<Body>, sub: String) -> Result<Response<Body>, String> {
+pub fn quarantine(req: Request, sub: String) -> Result<Response, String> {
 	let wall = WallTemplate {
 		title: format!("r/{} is quarantined", sub),
 		msg: "Please click the button below to continue to this subreddit.".to_string(),
-		url: req.uri().to_string(),
+		url: req.url(),
 		sub,
 		prefs: Preferences::new(&req),
 	};
 
-	Ok(
-		Response::builder()
-			.status(403)
-			.header("content-type", "text/html")
-			.body(wall.render().unwrap_or_default().into())
-			.unwrap_or_default(),
-	)
+	let body = wall.render().ok();
+
+	let mut init = ResponseInit::new();
+	init.status(403);
+
+	Response::new_with_opt_str_and_init(body.as_ref().map(|x| &**x), &init).map_err(wasm_error)
 }
 
-pub async fn add_quarantine_exception(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn add_quarantine_exception(req: Request) -> Result<Response, String> {
 	let subreddit = req.param("sub").ok_or("Invalid URL")?;
-	let redir = param(&format!("?{}", req.uri().query().unwrap_or_default()), "redir").ok_or("Invalid URL")?;
+	let redir = param(&req.uri().search(), "redir").ok_or("Invalid URL")?;
 	let mut response = redirect(redir);
 	response.insert_cookie(
 		Cookie::build(&format!("allow_quaran_{}", subreddit.to_lowercase()), "true")
@@ -185,15 +185,15 @@ pub async fn add_quarantine_exception(req: Request<Body>) -> Result<Response<Bod
 	Ok(response)
 }
 
-pub fn can_access_quarantine(req: &Request<Body>, sub: &str) -> bool {
+pub fn can_access_quarantine(req: &Request, sub: &str) -> bool {
 	// Determine if the subreddit can be accessed
 	setting(req, &format!("allow_quaran_{}", sub.to_lowercase())).parse().unwrap_or_default()
 }
 
 // Sub, filter, unfilter, or unsub by setting subscription cookie using response "Set-Cookie" header
-pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn subscriptions_filters(req: Request) -> Result<Response, String> {
 	let sub = req.param("sub").unwrap_or_default();
-	let action: Vec<String> = req.uri().path().split('/').map(String::from).collect();
+	let action: Vec<String> = req.uri().pathname().split('/').map(String::from).collect();
 
 	// Handle random subreddits
 	if sub == "random" || sub == "randnsfw" {
@@ -203,8 +203,6 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 			return Err("Can't subscribe to random subreddit!".to_string());
 		}
 	}
-
-	let query = req.uri().query().unwrap_or_default().to_string();
 
 	let preferences = Preferences::new(&req);
 	let mut sub_list = preferences.subscriptions;
@@ -265,9 +263,10 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 		}
 	}
 
+	let query = req.uri().search();
 	// Redirect back to subreddit
 	// check for redirect parameter if unsubscribing/unfiltering from outside sidebar
-	let path = if let Some(redirect_path) = param(&format!("?{}", query), "redirect") {
+	let path = if let Some(redirect_path) = param(&query, "redirect") {
 		format!("/{}", redirect_path)
 	} else {
 		format!("/r/{}", sub)
@@ -302,7 +301,7 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 	Ok(response)
 }
 
-pub async fn wiki(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn wiki(req: Request) -> Result<Response, String> {
 	let sub = req.param("sub").unwrap_or_else(|| "reddit.com".to_string());
 	let quarantined = can_access_quarantine(&req, &sub);
 	// Handle random subreddits
@@ -312,7 +311,7 @@ pub async fn wiki(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	let page = req.param("page").unwrap_or_else(|| "index".to_string());
 	let path: String = format!("/r/{}/wiki/{}.json?raw_json=1", sub, page);
-	let url = req.uri().to_string();
+	let url = req.url();
 
 	match json(path, quarantined).await {
 		Ok(response) => template(WikiTemplate {
@@ -332,7 +331,7 @@ pub async fn wiki(req: Request<Body>) -> Result<Response<Body>, String> {
 	}
 }
 
-pub async fn sidebar(req: Request<Body>) -> Result<Response<Body>, String> {
+pub async fn sidebar(req: Request) -> Result<Response, String> {
 	let sub = req.param("sub").unwrap_or_else(|| "reddit.com".to_string());
 	let quarantined = can_access_quarantine(&req, &sub);
 
@@ -343,7 +342,7 @@ pub async fn sidebar(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	// Build the Reddit JSON API url
 	let path: String = format!("/r/{}/about.json?raw_json=1", sub);
-	let url = req.uri().to_string();
+	let url = req.url();
 
 	// Send a request to the url
 	match json(path, quarantined).await {
