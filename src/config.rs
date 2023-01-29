@@ -1,5 +1,11 @@
 use once_cell::sync::Lazy;
-use std::{env::var, fs::read_to_string};
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+extern "C" {
+	#[wasm_bindgen(js_namespace= Deno, js_name = "env.get")]
+	fn get_env(input: &str) -> Option<String>;
+}
 
 // Waiting for https://github.com/rust-lang/rust/issues/74465 to land, so we
 // can reduce reliance on once_cell.
@@ -53,11 +59,11 @@ impl Config {
 	pub fn load() -> Self {
 		// Read from libreddit.toml config file. If for any reason, it fails, the
 		// default `Config` is used (all None values)
-		let config: Config = toml::from_str(&read_to_string("libreddit.toml").unwrap_or_default()).unwrap_or_default();
+		let config: Config = Config::default();
 		// This function defines the order of preference - first check for
 		// environment variables with "LIBREDDIT", then check the config, then if
 		// both are `None`, return a `None` via the `map_or_else` function
-		let parse = |key: &str| -> Option<String> { var(key).ok().map_or_else(|| get_setting_from_config(key, &config), Some) };
+		let parse = |key: &str| -> Option<String> { get_env(key).map_or_else(|| get_setting_from_config(key, &config), Some) };
 		Self {
 			sfw_only: parse("LIBREDDIT_SFW_ONLY"),
 			default_theme: parse("LIBREDDIT_DEFAULT_THEME"),
