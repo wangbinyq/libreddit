@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 askama = { version = "0.11.1", default-features = false }
+cached = { version = "0.42.0", default-features = false, features = ["proc_macro", "wasm"] }
 regex = "1.7.1"
 serde = { version = "1.0.152", features = ["derive"] }
 cookie = "0.16.2"
