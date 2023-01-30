@@ -888,7 +888,7 @@ pub fn sfw_only() -> bool {
 
 /// Renders the landing page for NSFW content when the user has not enabled
 /// "show NSFW posts" in settings.
-pub async fn nsfw_landing(req: Request) -> Result<Response, JsValue> {
+pub async fn nsfw_landing(req: Request) -> Result<Response, String> {
 	let res_type: ResourceType;
 	let url = req.uri().pathname();
 
@@ -917,7 +917,11 @@ pub async fn nsfw_landing(req: Request) -> Result<Response, JsValue> {
 	let mut init = ResponseInit::new();
 	init.status(403);
 
-	Response::new_with_opt_str_and_init(Some(body.as_str()), &init)
+	let res = Response::new_with_opt_str_and_init(Some(body.as_str()), &init).map_err(wasm_error)?;
+
+	res.headers().set("content-type", "text/html").ok();
+
+	Ok(res)
 }
 
 pub async fn promise<T>(promise: Promise) -> Result<T, String>
