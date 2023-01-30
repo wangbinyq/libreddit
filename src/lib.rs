@@ -32,50 +32,25 @@ mod server;
 
 // Required for the manifest to be valid
 async fn pwa_logo() -> Result<Response, String> {
-	let body = include_bytes!("../static/logo.png").as_ref();
-	let body: Uint8Array = body.into();
-
-	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
-	response.headers().set("content-type", "image/png").ok();
-
-	Ok(response)
+	resource(include_bytes!("../static/logo.png").as_ref(), "image/png", false).await
 }
 
 // Required for iOS App Icons
 async fn iphone_logo() -> Result<Response, String> {
-	let body = include_bytes!("../static/apple-touch-icon.png").as_ref();
-	let body: Uint8Array = body.into();
-
-	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
-	response.headers().set("content-type", "image/png").ok();
-
-	Ok(response)
+	resource(include_bytes!("../static/apple-touch-icon.png").as_ref(), "image/png", false).await
 }
 
 async fn favicon() -> Result<Response, String> {
-	let body = include_bytes!("../static/favicon.ico").as_ref();
-	let body: Uint8Array = body.into();
-
-	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
-	response.headers().set("content-type", "image/vnd.microsoft.icon").ok();
-	response.headers().set("Cache-Control", "public, max-age=1209600, s-maxage=86400").ok();
-
-	Ok(response)
+	resource(include_bytes!("../static/favicon.ico").as_ref(), "image/vnd.microsoft.icon", true).await
 }
 
 async fn font() -> Result<Response, String> {
-	let body = include_bytes!("../static/Inter.var.woff2").as_ref();
-	let body: Uint8Array = body.into();
-
-	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
-	response.headers().set("content-type", "font/woff2").ok();
-	response.headers().set("Cache-Control", "public, max-age=1209600, s-maxage=86400").ok();
-
-	Ok(response)
+	resource(include_bytes!("../static/Inter.var.woff2").as_ref(), "font/woff2", true).await
 }
 
-async fn resource(body: &str, content_type: &str, cache: bool) -> Result<Response, String> {
-	let response = Response::new_with_opt_str(Some(&body)).map_err(wasm_error)?;
+async fn resource(body: impl AsRef<[u8]>, content_type: &str, cache: bool) -> Result<Response, String> {
+	let body: Uint8Array = body.as_ref().into();
+	let response = Response::new_with_opt_buffer_source(Some(&body)).map_err(wasm_error)?;
 	response.headers().set("content-type", content_type).ok();
 
 	if cache {
