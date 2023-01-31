@@ -4,7 +4,7 @@
     "spikecodes <19519553+spikecodes@users.noreply.github.com>"
   ],
   "description": " Alternative private front-end to Reddit",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
@@ -13,6 +13,7 @@
   "files": [
     "libreddit_bg.wasm",
     "libreddit.js",
+    "libreddit_bg.js",
     "libreddit.d.ts"
   ],
   "module": "libreddit.js",
