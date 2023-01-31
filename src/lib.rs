@@ -5,6 +5,7 @@
 // Reference local files
 mod config;
 mod duplicates;
+mod instance_info;
 mod post;
 mod search;
 mod settings;
@@ -77,6 +78,13 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 
 	// Begin constructing a server
 	let mut app = server::Server::new();
+
+	// Force evaluation of statics. In instance_info case, we need to evaluate
+	// the timestamp so deploy date is accurate - in config case, we need to
+	// evaluate the configuration to avoid paying penalty at first request.
+
+	Lazy::force(&config::CONFIG);
+	Lazy::force(&instance_info::INSTANCE_INFO);
 
 	// Define default headers (added to all responses)
 	app.default_headers = headers! {
@@ -198,6 +206,10 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 
 	// Handle about pages
 	app.at("/about").get(|req| error(req, "About pages aren't added yet".to_string()).boxed_local());
+
+	// Instance info page
+	app.at("/info").get(|r| instance_info::instance_info(r).boxed_local());
+	app.at("/info.:extension").get(|r| instance_info::instance_info(r).boxed_local());
 
 	app.at("/:id").get(|req: Request| {
 		Box::pin(async move {
