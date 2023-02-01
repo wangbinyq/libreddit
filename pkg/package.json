@@ -13,7 +13,6 @@
   "files": [
     "libreddit_bg.wasm",
     "libreddit.js",
-    "libreddit_bg.js",
     "libreddit.d.ts"
   ],
   "module": "libreddit.js",
