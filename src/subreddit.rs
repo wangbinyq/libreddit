@@ -98,10 +98,11 @@ pub async fn community(req: Request) -> Result<Response, String> {
 		}
 	};
 
+	let req_url = req.uri().as_string().unwrap();
 	// Return landing page if this post if this is NSFW community but the user
 	// has disabled the display of NSFW content or if the instance is SFW-only.
-	if sub.nsfw && (setting(&req, "show_nsfw") != "on" || crate::utils::sfw_only()) {
-		return Ok(nsfw_landing(req).await.unwrap());
+	if sub.nsfw && crate::utils::should_be_nsfw_gated(&req, &req_url) {
+		return Ok(nsfw_landing(req, req_url).await.unwrap());
 	}
 
 	let path = format!("/r/{}/{}.json{}&raw_json=1", sub_name.clone(), sort, req.uri().search());
@@ -145,7 +146,7 @@ pub async fn community(req: Request) -> Result<Response, String> {
 				})
 			}
 			Err(msg) => match msg.as_str() {
-				"quarantined" => quarantine(req, sub_name),
+				"quarantined" | "gated" => quarantine(req, sub_name, msg),
 				"private" => error(req, format!("r/{} is a private community", sub_name)).await,
 				"banned" => error(req, format!("r/{} has been banned from Reddit", sub_name)).await,
 				_ => error(req, msg).await,
@@ -154,9 +155,9 @@ pub async fn community(req: Request) -> Result<Response, String> {
 	}
 }
 
-pub fn quarantine(req: Request, sub: String) -> Result<Response, String> {
+pub fn quarantine(req: Request, sub: String, restriction: String) -> Result<Response, String> {
 	let wall = WallTemplate {
-		title: format!("r/{} is quarantined", sub),
+		title: format!("r/{} is {}", sub, restriction),
 		msg: "Please click the button below to continue to this subreddit.".to_string(),
 		url: req.uri().pathname(),
 		sub,
@@ -325,8 +326,8 @@ pub async fn wiki(req: Request) -> Result<Response, String> {
 			url,
 		}),
 		Err(msg) => {
-			if msg == "quarantined" {
-				quarantine(req, sub)
+			if msg == "quarantined" || msg == "gated" {
+				quarantine(req, sub, msg)
 			} else {
 				error(req, msg).await
 			}
@@ -363,8 +364,8 @@ pub async fn sidebar(req: Request) -> Result<Response, String> {
 			url,
 		}),
 		Err(msg) => {
-			if msg == "quarantined" {
-				quarantine(req, sub)
+			if msg == "quarantined" || msg == "gated" {
+				quarantine(req, sub, msg)
 			} else {
 				error(req, msg).await
 			}
