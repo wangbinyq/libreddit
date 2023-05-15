@@ -33,7 +33,7 @@ pub async fn item(req: Request) -> Result<Response, String> {
 	let mut path: String = format!("{}.json{}&raw_json=1", req.uri().pathname(), req.uri().search());
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
-	let url = req.uri().as_string().unwrap();
+	let url = req.uri().as_string().unwrap_or_default();
 
 	// Set sort to sort query parameter
 	let sort = param(&path, "sort").unwrap_or_else(|| {
@@ -63,7 +63,7 @@ pub async fn item(req: Request) -> Result<Response, String> {
 			// Parse the JSON into Post and Comment structs
 			let post = parse_post(&response[0]["data"]["children"][0]).await;
 
-			let req_url = req.uri().as_string().unwrap();
+			let req_url = req.uri().as_string().unwrap_or_default();
 			// Return landing page if this post if this Reddit deems this post
 			// NSFW, but we have also disabled the display of NSFW content
 			// or if the instance is SFW-only.

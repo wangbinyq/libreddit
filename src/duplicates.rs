@@ -67,7 +67,7 @@ pub async fn item(req: Request) -> Result<Response, String> {
 		Ok(response) => {
 			let post = parse_post(&response[0]["data"]["children"][0]).await;
 
-			let req_url = req.uri().as_string().unwrap();
+			let req_url = req.uri().as_string().unwrap_or_default();
 			// Return landing page if this post if this Reddit deems this post
 			// NSFW, but we have also disabled the display of NSFW content
 			// or if the instance is SFW-only

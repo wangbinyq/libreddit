@@ -50,7 +50,7 @@ pub async fn profile(req: Request) -> Result<Response, String> {
 	// Retrieve info from user about page.
 	let user = user(&username).await.unwrap_or_default();
 
-	let req_url = req.uri().as_string().unwrap();
+	let req_url = req.uri().as_string().unwrap_or_default();
 	// Return landing page if this post if this Reddit deems this user NSFW,
 	// but we have also disabled the display of NSFW content or if the instance
 	// is SFW-only.
