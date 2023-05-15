@@ -99,9 +99,21 @@ static SERVER: Lazy<Server> = Lazy::new(|| {
 	app
 		.at("/manifest.json")
 		.get(|_| resource(include_str!("../static/manifest.json"), "application/json", false).boxed_local());
-	app
-		.at("/robots.txt")
-		.get(|_| resource("User-agent: *\nDisallow: /u/\nDisallow: /user/", "text/plain", true).boxed_local());
+	app.at("/robots.txt").get(|_| {
+		resource(
+			if match config::get_setting("LIBREDDIT_ROBOTS_DISABLE_INDEXING") {
+				Some(val) => val == "on",
+				None => false,
+			} {
+				"User-agent: *\nDisallow: /"
+			} else {
+				"User-agent: *\nDisallow: /u/\nDisallow: /user/"
+			},
+			"text/plain",
+			true,
+		)
+		.boxed_local()
+	});
 	app.at("/favicon.ico").get(|_| favicon().boxed_local());
 	app.at("/logo.png").get(|_| pwa_logo().boxed_local());
 	app.at("/Inter.var.woff2").get(|_| font().boxed_local());
