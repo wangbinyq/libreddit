@@ -1,36 +1,25 @@
-####################################################################################################
-## Builder
-####################################################################################################
-FROM rust:alpine AS builder
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR app
 
-RUN apk add --no-cache musl-dev
-
-WORKDIR /libreddit
-
+FROM chef AS planner
 COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-RUN cargo build --target x86_64-unknown-linux-musl --release
+FROM chef AS builder 
+COPY --from=planner /app/recipe.json recipe.json
+# Build dependencies - this is the caching Docker layer!
+RUN cargo chef cook --release --recipe-path recipe.json
+# Build application
+COPY . .
+RUN cargo build --release
 
-####################################################################################################
-## Final image
-####################################################################################################
-FROM alpine:latest
+# We do not need the Rust toolchain to run the binary!
+FROM debian:bullseye-slim AS runtime
 
-# Import ca-certificates from builder
-COPY --from=builder /usr/share/ca-certificates /usr/share/ca-certificates
-COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+# using jemalloc for better performance
+RUN apt-get update && apt-get install -y ca-certificates libjemalloc-dev && rm -rf /var/lib/apt/lists/*
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 
-# Copy our build
-COPY --from=builder /libreddit/target/x86_64-unknown-linux-musl/release/libreddit /usr/local/bin/libreddit
-
-# Use an unprivileged user.
-RUN adduser --home /nonexistent --no-create-home --disabled-password libreddit
-USER libreddit
-
-# Tell Docker to expose port 8080
-EXPOSE 8080
-
-# Run a healthcheck every minute to make sure Libreddit is functional
-HEALTHCHECK --interval=1m --timeout=3s CMD wget --spider --q http://localhost:8080/settings || exit 1
-
-CMD ["libreddit"]
+WORKDIR app
+COPY --from=builder /app/target/release/libreddit /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/libreddit"]
