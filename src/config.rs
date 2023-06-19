@@ -15,12 +15,16 @@ extern "C" {
 // first request) and contains the instance settings.
 pub(crate) static CONFIG: Lazy<Config> = Lazy::new(Config::load);
 
+// This serves as the frontend for the Pushshift API - on removed comments, this URL will
+// be the base of a link, to display removed content (on another site).
+pub(crate) const DEFAULT_PUSHSHIFT_FRONTEND: &str = "www.unddit.com";
+
 /// Stores the configuration parsed from the environment variables and the
 /// config file. `Config::Default()` contains None for each setting.
 /// When adding more config settings, add it to `Config::load`,
 /// `get_setting_from_config`, both below, as well as
 /// instance_info::InstanceInfo.to_string(), README.md and app.json.
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
 	#[serde(rename = "LIBREDDIT_SFW_ONLY")]
 	pub(crate) sfw_only: Option<String>,
@@ -69,6 +73,9 @@ pub struct Config {
 
 	#[serde(rename = "LIBREDDIT_ROBOTS_DISABLE_INDEXING")]
 	pub(crate) robots_disable_indexing: Option<String>,
+
+	#[serde(rename = "LIBREDDIT_PUSHSHIFT_FRONTEND")]
+	pub(crate) pushshift: Option<String>,
 }
 
 impl Config {
@@ -83,6 +90,7 @@ impl Config {
 		// environment variables with "LIBREDDIT", then check the config, then if
 		// both are `None`, return a `None` via the `map_or_else` function
 		let parse = |key: &str| -> Option<String> { get_env(key).map_or_else(|| get_setting_from_config(key, &config), Some) };
+
 		Self {
 			sfw_only: parse("LIBREDDIT_SFW_ONLY"),
 			default_theme: parse("LIBREDDIT_DEFAULT_THEME"),
@@ -100,6 +108,7 @@ impl Config {
 			default_disable_visit_reddit_confirmation: parse("LIBREDDIT_DEFAULT_DISABLE_VISIT_REDDIT_CONFIRMATION"),
 			banner: parse("LIBREDDIT_BANNER"),
 			robots_disable_indexing: parse("LIBREDDIT_ROBOTS_DISABLE_INDEXING"),
+			pushshift: parse("LIBREDDIT_PUSHSHIFT_FRONTEND"),
 		}
 	}
 }
@@ -122,6 +131,7 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"LIBREDDIT_DEFAULT_DISABLE_VISIT_REDDIT_CONFIRMATION" => config.default_disable_visit_reddit_confirmation.clone(),
 		"LIBREDDIT_BANNER" => config.banner.clone(),
 		"LIBREDDIT_ROBOTS_DISABLE_INDEXING" => config.robots_disable_indexing.clone(),
+		"LIBREDDIT_PUSHSHIFT_FRONTEND" => config.pushshift.clone(),
 		_ => None,
 	}
 }
@@ -133,6 +143,13 @@ pub(crate) fn get_setting(name: &str) -> Option<String> {
 
 #[cfg(test)]
 use {sealed_test::prelude::*, std::fs::write};
+
+#[test]
+fn test_deserialize() {
+	// Must handle empty input
+	let result = toml::from_str::<Config>("");
+	assert!(result.is_ok(), "Error: {}", result.unwrap_err());
+}
 
 #[test]
 #[sealed_test(env = [("LIBREDDIT_SFW_ONLY", "on")])]

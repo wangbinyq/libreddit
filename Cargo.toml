@@ -11,11 +11,11 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-askama = { version = "0.11.1", default-features = false }
-cached = { version = "0.42.0", default-features = false, features = ["proc_macro", "wasm"] }
+askama = { version = "0.12.0", default-features = false }
+cached = { version = "0.43.0", default-features = false, features = ["proc_macro", "wasm"] }
 regex = "1.7.1"
 serde = { version = "1.0.152", features = ["derive"] }
-cookie = "0.16.2"
+cookie = "0.17.0"
 futures-lite = "1.12.0"
 percent-encoding = "2.2.0"
 route-recognizer = "0.3.1"
@@ -34,7 +34,7 @@ serde_yaml = "0.9.16"
 build_html = "2.2.0"
 
 [dev-dependencies]
-lipsum = "0.8.2"
+lipsum = "0.9.0"
 sealed_test = "1.0.0"
 
 [profile.release]

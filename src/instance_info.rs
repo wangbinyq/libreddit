@@ -96,7 +96,7 @@ pub(crate) struct InstanceInfo {
 impl InstanceInfo {
 	pub fn new() -> Self {
 		Self {
-			crate_version: env!("CARGO_PKG_VERSION").to_string(),
+			crate_version: format!("{}-wasm", env!("CARGO_PKG_VERSION")),
 			git_commit: env!("GIT_HASH").to_string(),
 			deploy_date: OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc()).to_string(),
 			#[cfg(debug_assertions)]
@@ -124,6 +124,8 @@ impl InstanceInfo {
 				["Deploy timestamp", &self.deploy_unix_ts.to_string()],
 				["Compile mode", &self.compile_mode],
 				["SFW only", &convert(&self.config.sfw_only)],
+				["Pushshift frontend", &convert(&self.config.pushshift)],
+				//TODO: fallback to crate::config::DEFAULT_PUSHSHIFT_FRONTEND
 			])
 			.with_header_row(["Settings"]),
 		);
@@ -157,6 +159,7 @@ impl InstanceInfo {
                 Deploy timestamp: {}\n
                 Compile mode: {}\n
 				SFW only: {:?}\n
+				Pushshift frontend: {:?}\n
                 Config:\n
                     Banner: {:?}\n
                     Hide awards: {:?}\n
@@ -177,6 +180,7 @@ impl InstanceInfo {
 					self.deploy_unix_ts,
 					self.compile_mode,
 					self.config.sfw_only,
+					self.config.pushshift,
 					self.config.banner,
 					self.config.default_hide_awards,
 					self.config.default_theme,
